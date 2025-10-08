@@ -1,0 +1,71 @@
+# web.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: web
+        image: php:8.2-apache
+        ports:
+        - containerPort: 80
+        env:
+        - name: DB_HOST
+          value: mariadb.demo.svc.cluster.local
+        - name: DB_USER
+          value: root
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-secret
+              key: MARIADB_ROOT_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-secret
+              key: MARIADB_DATABASE
+        volumeMounts:
+        - name: html
+          mountPath: /var/www/html
+      volumes:
+      - name: html
+        configMap:
+          name: web-index
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-index
+  namespace: demo
+data:
+  index.php: |
+    <?php
+    $link = mysqli_connect(getenv('DB_HOST'), getenv('DB_USER'), getenv('DB_PASS'), getenv('DB_NAME'));
+    if (!$link) {
+        die("Database connection failed: " . mysqli_connect_error());
+    }
+    echo "<h2>Connected to MariaDB successfully!</h2>";
+    ?>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: demo
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: web
+  type: NodePort  # optional for external access

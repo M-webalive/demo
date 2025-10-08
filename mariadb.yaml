@@ -1,0 +1,52 @@
+# mariadb.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-secret
+  namespace: demo
+type: Opaque
+stringData:
+  MARIADB_ROOT_PASSWORD: supersecret
+  MARIADB_DATABASE: appdb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      containers:
+      - name: mariadb
+        image: mariadb:11
+        envFrom:
+        - secretRef:
+            name: mariadb-secret
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: demo
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mariadb
